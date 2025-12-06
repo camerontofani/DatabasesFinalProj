@@ -144,10 +144,86 @@ app.post('/api/courses', async (req, res) => {
 // ----------------------
 app.get('/api/sections', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM Section;');
+    const [rows] = await pool.query('SELECT * FROM Section ORDER BY year DESC, term, course_no, section_no;');
     res.json(rows);
   } catch (err) {
     console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   ADD A NEW SECTION
+// ----------------------
+app.post('/api/sections', async (req, res) => {
+  try {
+    const { course_no, section_no, term, year, student_count } = req.body;
+
+    // Server-side validation
+    if (!course_no) {
+      return res.status(400).json({ error: 'Course is required.' });
+    }
+
+    if (!section_no) {
+      return res.status(400).json({ error: 'Section number is required.' });
+    }
+
+    if (!term) {
+      return res.status(400).json({ error: 'Term is required.' });
+    }
+
+    if (!year) {
+      return res.status(400).json({ error: 'Year is required.' });
+    }
+
+    if (!student_count || student_count < 1) {
+      return res.status(400).json({ error: 'Student count must be at least 1.' });
+    }
+
+    if (student_count > 500) {
+      return res.status(400).json({ error: 'Student count cannot exceed 500.' });
+    }
+
+    // Check if course exists
+    const [courseCheck] = await pool.query('SELECT course_no FROM Course WHERE course_no = ?', [course_no]);
+    if (courseCheck.length === 0) {
+      return res.status(400).json({ error: 'Selected course does not exist.' });
+    }
+
+    // Check if semester exists
+    const [semesterCheck] = await pool.query('SELECT term FROM Semester WHERE term = ? AND year = ?', [term, year]);
+    if (semesterCheck.length === 0) {
+      return res.status(400).json({ error: 'Selected semester does not exist.' });
+    }
+
+    // Insert into database
+    await pool.query(
+      'INSERT INTO Section (course_no, section_no, term, year, student_count) VALUES (?, ?, ?, ?, ?)',
+      [course_no, section_no, term, year, student_count]
+    );
+
+    res.status(201).json({ 
+      message: 'Section added successfully', 
+      course_no,
+      section_no,
+      term,
+      year,
+      student_count
+    });
+
+  } catch (err) {
+    console.error(err);
+    
+    // Handle duplicate entry error
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'This section already exists for this course and semester.' });
+    }
+
+    // Handle foreign key errors
+    if (err.code === 'ER_NO_REFERENCED_ROW_2' || err.code === 'ER_NO_REFERENCED_ROW') {
+      return res.status(400).json({ error: 'Invalid course or semester reference.' });
+    }
+    
     res.status(500).json({ error: 'Database error' });
   }
 });
@@ -323,12 +399,514 @@ app.post('/api/objectives', async (req, res) => {
 });
 
 // ----------------------
+//   ADD A COURSE OBJECTIVE LINK
+// ----------------------
+app.post('/api/course-objectives', async (req, res) => {
+  try {
+    const { course_no, objective_code } = req.body;
+
+    // Server-side validation
+    if (!course_no) {
+      return res.status(400).json({ error: 'Course is required.' });
+    }
+
+    if (!objective_code) {
+      return res.status(400).json({ error: 'Learning objective is required.' });
+    }
+
+    // Check if course exists
+    const [courseCheck] = await pool.query('SELECT course_no FROM Course WHERE course_no = ?', [course_no]);
+    if (courseCheck.length === 0) {
+      return res.status(400).json({ error: 'Selected course does not exist.' });
+    }
+
+    // Check if objective exists
+    const [objectiveCheck] = await pool.query('SELECT code FROM LearningObjective WHERE code = ?', [objective_code]);
+    if (objectiveCheck.length === 0) {
+      return res.status(400).json({ error: 'Selected learning objective does not exist.' });
+    }
+
+    // Insert into database
+    await pool.query(
+      'INSERT INTO CourseObjective (course_no, objective_code) VALUES (?, ?)',
+      [course_no, objective_code]
+    );
+
+    res.status(201).json({ 
+      message: 'Course linked to objective successfully', 
+      course_no,
+      objective_code
+    });
+
+  } catch (err) {
+    console.error(err);
+    
+    // Handle duplicate entry error
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'This course is already linked to this objective.' });
+    }
+
+    // Handle foreign key errors
+    if (err.code === 'ER_NO_REFERENCED_ROW_2' || err.code === 'ER_NO_REFERENCED_ROW') {
+      return res.status(400).json({ error: 'Invalid course or objective reference.' });
+    }
+    
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   GET ALL DEGREE COURSES
+// ----------------------
+app.get('/api/degree-courses', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT dc.degree_name, dc.degree_level, dc.course_no, c.course_name, dc.is_core
+      FROM DegreeCourse dc
+      JOIN Course c ON dc.course_no = c.course_no
+      ORDER BY dc.degree_name, dc.degree_level, dc.is_core DESC, dc.course_no
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   ADD A DEGREE COURSE LINK
+// ----------------------
+app.post('/api/degree-courses', async (req, res) => {
+  try {
+    const { degree_name, degree_level, course_no, is_core } = req.body;
+
+    // Server-side validation
+    if (!degree_name || !degree_level) {
+      return res.status(400).json({ error: 'Degree is required.' });
+    }
+
+    if (!course_no) {
+      return res.status(400).json({ error: 'Course is required.' });
+    }
+
+    // Check if degree exists
+    const [degreeCheck] = await pool.query(
+      'SELECT name FROM Degree WHERE name = ? AND level = ?', 
+      [degree_name, degree_level]
+    );
+    if (degreeCheck.length === 0) {
+      return res.status(400).json({ error: 'Selected degree does not exist.' });
+    }
+
+    // Check if course exists
+    const [courseCheck] = await pool.query('SELECT course_no FROM Course WHERE course_no = ?', [course_no]);
+    if (courseCheck.length === 0) {
+      return res.status(400).json({ error: 'Selected course does not exist.' });
+    }
+
+    // Insert into database
+    await pool.query(
+      'INSERT INTO DegreeCourse (degree_name, degree_level, course_no, is_core) VALUES (?, ?, ?, ?)',
+      [degree_name, degree_level, course_no, is_core ? 1 : 0]
+    );
+
+    res.status(201).json({ 
+      message: 'Degree linked to course successfully', 
+      degree_name,
+      degree_level,
+      course_no,
+      is_core
+    });
+
+  } catch (err) {
+    console.error(err);
+    
+    // Handle duplicate entry error
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'This course is already linked to this degree.' });
+    }
+
+    // Handle foreign key errors
+    if (err.code === 'ER_NO_REFERENCED_ROW_2' || err.code === 'ER_NO_REFERENCED_ROW') {
+      return res.status(400).json({ error: 'Invalid degree or course reference.' });
+    }
+    
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   GET ALL TEACHES (instructor-section assignments)
+// ----------------------
+app.get('/api/teaches', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT t.instructor_id, i.instructor_name, t.course_no, c.course_name, 
+             t.section_no, t.term, t.year
+      FROM Teaches t
+      JOIN Instructor i ON t.instructor_id = i.instructor_id
+      JOIN Course c ON t.course_no = c.course_no
+      ORDER BY t.year DESC, t.term, t.course_no, t.section_no
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   ADD A TEACHES RECORD (assign instructor to section)
+// ----------------------
+app.post('/api/teaches', async (req, res) => {
+  try {
+    const { instructor_id, course_no, section_no, term, year } = req.body;
+
+    // Server-side validation
+    if (!instructor_id) {
+      return res.status(400).json({ error: 'Instructor is required.' });
+    }
+    if (!course_no || !section_no || !term || !year) {
+      return res.status(400).json({ error: 'Section information is required.' });
+    }
+
+    // Check if instructor exists
+    const [instCheck] = await pool.query('SELECT instructor_id FROM Instructor WHERE instructor_id = ?', [instructor_id]);
+    if (instCheck.length === 0) {
+      return res.status(400).json({ error: 'Selected instructor does not exist.' });
+    }
+
+    // Check if section exists
+    const [secCheck] = await pool.query(
+      'SELECT course_no FROM Section WHERE course_no = ? AND section_no = ? AND term = ? AND year = ?',
+      [course_no, section_no, term, year]
+    );
+    if (secCheck.length === 0) {
+      return res.status(400).json({ error: 'Selected section does not exist.' });
+    }
+
+    // Check if section already has an instructor (enforce one instructor per section)
+    const [existingCheck] = await pool.query(
+      'SELECT instructor_id FROM Teaches WHERE course_no = ? AND section_no = ? AND term = ? AND year = ?',
+      [course_no, section_no, term, year]
+    );
+    if (existingCheck.length > 0) {
+      return res.status(409).json({ error: 'This section already has an instructor assigned. Each section can only have one instructor.' });
+    }
+
+    // Insert into database
+    await pool.query(
+      'INSERT INTO Teaches (instructor_id, course_no, section_no, term, year) VALUES (?, ?, ?, ?, ?)',
+      [instructor_id, course_no, section_no, term, year]
+    );
+
+    res.status(201).json({ 
+      message: 'Instructor assigned to section successfully',
+      instructor_id,
+      course_no,
+      section_no,
+      term,
+      year
+    });
+
+  } catch (err) {
+    console.error(err);
+    
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'This instructor is already assigned to this section.' });
+    }
+    if (err.code === 'ER_NO_REFERENCED_ROW_2' || err.code === 'ER_NO_REFERENCED_ROW') {
+      return res.status(400).json({ error: 'Invalid instructor or section reference.' });
+    }
+    
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   GET INSTRUCTOR SECTIONS (for evaluation form)
+// ----------------------
+app.get('/api/instructor-sections', async (req, res) => {
+  try {
+    const { degree_name, degree_level, term, year, instructor_id } = req.query;
+    
+    if (!degree_name || !degree_level || !term || !year || !instructor_id) {
+      return res.status(400).json({ error: 'All parameters required.' });
+    }
+
+    // Get sections that:
+    // 1. Are taught by this instructor (Teaches table)
+    // 2. Are in this semester
+    // 3. Belong to a course in this degree (DegreeCourse table)
+    const [rows] = await pool.query(`
+      SELECT DISTINCT s.course_no, s.section_no, s.term, s.year, s.student_count, c.course_name
+      FROM Section s
+      JOIN Course c ON s.course_no = c.course_no
+      JOIN DegreeCourse dc ON s.course_no = dc.course_no
+        AND dc.degree_name = ? AND dc.degree_level = ?
+      JOIN Teaches t ON s.course_no = t.course_no
+        AND s.section_no = t.section_no
+        AND s.term = t.term
+        AND s.year = t.year
+        AND t.instructor_id = ?
+      WHERE s.term = ? AND s.year = ?
+      ORDER BY s.course_no, s.section_no
+    `, [degree_name, degree_level, instructor_id, term, parseInt(year, 10)]);
+    
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   GET OBJECTIVES FOR A SPECIFIC COURSE (for evaluation form)
+// ----------------------
+app.get('/api/course-objectives', async (req, res) => {
+  try {
+    const { course_no } = req.query;
+    
+    let query, params;
+    if (course_no) {
+      // Get objectives for specific course
+      query = `
+        SELECT co.course_no, co.objective_code, lo.title, lo.description
+        FROM CourseObjective co
+        JOIN LearningObjective lo ON co.objective_code = lo.code
+        WHERE co.course_no = ?
+        ORDER BY co.objective_code
+      `;
+      params = [course_no];
+    } else {
+      // Get all course objectives with joined data
+      query = `
+        SELECT co.course_no, c.course_name, co.objective_code, lo.title as objective_title
+        FROM CourseObjective co
+        JOIN Course c ON co.course_no = c.course_no
+        JOIN LearningObjective lo ON co.objective_code = lo.code
+        ORDER BY co.course_no, co.objective_code
+      `;
+      params = [];
+    }
+    
+    const [rows] = await pool.query(query, params);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   GET EVALUATIONS FOR A SPECIFIC SECTION (for evaluation form)
+// ----------------------
+app.get('/api/section-evaluations', async (req, res) => {
+  try {
+    const { degree_name, degree_level, course_no, section_no, term, year } = req.query;
+    
+    if (!degree_name || !degree_level || !course_no || !section_no || !term || !year) {
+      return res.status(400).json({ error: 'All parameters required.' });
+    }
+
+    const [rows] = await pool.query(`
+      SELECT * FROM Evaluation
+      WHERE degree_name = ? AND degree_level = ?
+        AND course_no = ? AND section_no = ?
+        AND term = ? AND year = ?
+    `, [degree_name, degree_level, course_no, section_no, term, parseInt(year, 10)]);
+    
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   GET DEGREES FOR A SPECIFIC COURSE (for duplication feature)
+// ----------------------
+app.get('/api/course-degrees', async (req, res) => {
+  try {
+    const { course_no } = req.query;
+    
+    if (!course_no) {
+      return res.status(400).json({ error: 'Course number required.' });
+    }
+
+    const [rows] = await pool.query(`
+      SELECT degree_name, degree_level, is_core
+      FROM DegreeCourse
+      WHERE course_no = ?
+      ORDER BY degree_name, degree_level
+    `, [course_no]);
+    
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
 //   GET ALL EVALUATIONS
 // ----------------------
 app.get('/api/evaluations', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM Evaluation;');
     res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   ADD A NEW EVALUATION
+// ----------------------
+app.post('/api/evaluations', async (req, res) => {
+  try {
+    const { 
+      degree_name, degree_level, course_no, section_no, term, year,
+      objective_code, eval_method, a_no, b_no, c_no, f_no, improvement_text,
+      duplicate_to 
+    } = req.body;
+
+    // Server-side validation
+    if (!degree_name || !degree_level) {
+      return res.status(400).json({ error: 'Degree is required.' });
+    }
+    if (!course_no || !section_no || !term || !year) {
+      return res.status(400).json({ error: 'Section information is required.' });
+    }
+    if (!objective_code) {
+      return res.status(400).json({ error: 'Learning objective is required.' });
+    }
+    if (!eval_method) {
+      return res.status(400).json({ error: 'Evaluation method is required.' });
+    }
+    if (a_no === undefined || b_no === undefined || c_no === undefined || f_no === undefined) {
+      return res.status(400).json({ error: 'All grade counts are required.' });
+    }
+    if (a_no < 0 || b_no < 0 || c_no < 0 || f_no < 0) {
+      return res.status(400).json({ error: 'Grade counts cannot be negative.' });
+    }
+
+    // Verify DegreeCourse exists
+    const [dcCheck] = await pool.query(
+      'SELECT 1 FROM DegreeCourse WHERE degree_name = ? AND degree_level = ? AND course_no = ?',
+      [degree_name, degree_level, course_no]
+    );
+    if (dcCheck.length === 0) {
+      return res.status(400).json({ error: 'This course is not associated with this degree.' });
+    }
+
+    // Verify Section exists
+    const [secCheck] = await pool.query(
+      'SELECT 1 FROM Section WHERE course_no = ? AND section_no = ? AND term = ? AND year = ?',
+      [course_no, section_no, term, year]
+    );
+    if (secCheck.length === 0) {
+      return res.status(400).json({ error: 'This section does not exist.' });
+    }
+
+    // Verify CourseObjective exists
+    const [coCheck] = await pool.query(
+      'SELECT 1 FROM CourseObjective WHERE course_no = ? AND objective_code = ?',
+      [course_no, objective_code]
+    );
+    if (coCheck.length === 0) {
+      return res.status(400).json({ error: 'This objective is not associated with this course.' });
+    }
+
+    // Insert the evaluation
+    await pool.query(
+      `INSERT INTO Evaluation 
+       (degree_name, degree_level, course_no, section_no, term, year, objective_code, eval_method, a_no, b_no, c_no, f_no, improvement_text)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [degree_name, degree_level, course_no, section_no, term, year, objective_code, eval_method, a_no, b_no, c_no, f_no, improvement_text || null]
+    );
+
+    // Handle duplication to other degrees
+    let duplicated = 0;
+    if (duplicate_to && duplicate_to.length > 0) {
+      for (const degKey of duplicate_to) {
+        const [dn, dl] = degKey.split('|');
+        // Check if DegreeCourse exists for this degree
+        const [dupCheck] = await pool.query(
+          'SELECT 1 FROM DegreeCourse WHERE degree_name = ? AND degree_level = ? AND course_no = ?',
+          [dn, dl, course_no]
+        );
+        if (dupCheck.length > 0) {
+          try {
+            await pool.query(
+              `INSERT INTO Evaluation 
+               (degree_name, degree_level, course_no, section_no, term, year, objective_code, eval_method, a_no, b_no, c_no, f_no, improvement_text)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [dn, dl, course_no, section_no, term, year, objective_code, eval_method, a_no, b_no, c_no, f_no, improvement_text || null]
+            );
+            duplicated++;
+          } catch (dupErr) {
+            // Ignore duplicate errors for other degrees
+            if (dupErr.code !== 'ER_DUP_ENTRY') throw dupErr;
+          }
+        }
+      }
+    }
+
+    res.status(201).json({ 
+      message: 'Evaluation added successfully',
+      duplicated
+    });
+
+  } catch (err) {
+    console.error(err);
+    
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'An evaluation for this degree, section, and objective already exists.' });
+    }
+    if (err.code === 'ER_NO_REFERENCED_ROW_2' || err.code === 'ER_NO_REFERENCED_ROW') {
+      return res.status(400).json({ error: 'Invalid reference. Please check all selections.' });
+    }
+    
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   UPDATE AN EVALUATION
+// ----------------------
+app.put('/api/evaluations/update', async (req, res) => {
+  try {
+    const { 
+      degree_name, degree_level, course_no, section_no, term, year,
+      objective_code, eval_method, a_no, b_no, c_no, f_no, improvement_text
+    } = req.body;
+
+    // Validation
+    if (!degree_name || !degree_level || !course_no || !section_no || !term || !year || !objective_code) {
+      return res.status(400).json({ error: 'All key fields are required.' });
+    }
+    if (!eval_method) {
+      return res.status(400).json({ error: 'Evaluation method is required.' });
+    }
+    if (a_no < 0 || b_no < 0 || c_no < 0 || f_no < 0) {
+      return res.status(400).json({ error: 'Grade counts cannot be negative.' });
+    }
+
+    const [result] = await pool.query(
+      `UPDATE Evaluation 
+       SET eval_method = ?, a_no = ?, b_no = ?, c_no = ?, f_no = ?, improvement_text = ?
+       WHERE degree_name = ? AND degree_level = ? AND course_no = ? AND section_no = ? AND term = ? AND year = ? AND objective_code = ?`,
+      [eval_method, a_no, b_no, c_no, f_no, improvement_text || null, degree_name, degree_level, course_no, section_no, term, year, objective_code]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Evaluation not found.' });
+    }
+
+    res.json({ message: 'Evaluation updated successfully' });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });

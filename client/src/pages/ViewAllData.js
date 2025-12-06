@@ -15,6 +15,9 @@ function ViewAllData() {
     instructors: "/api/instructors",
     objectives: "/api/objectives",
     semesters: "/api/semesters",
+    courseObjectives: "/api/course-objectives",
+    degreeCourses: "/api/degree-courses",
+    teaches: "/api/teaches",
   };
 
   const tableLabels = {
@@ -25,6 +28,9 @@ function ViewAllData() {
     instructors: "Instructors",
     objectives: "Learning Objectives",
     semesters: "Semesters",
+    courseObjectives: "Course Objectives",
+    degreeCourses: "Degree Courses",
+    teaches: "Instructor Assignments",
   };
 
   useEffect(() => {
@@ -93,6 +99,9 @@ function ViewAllData() {
           <option value="objectives">Learning Objectives</option>
           <option value="semesters">Semesters</option>
           <option value="sections">Sections</option>
+          <option value="courseObjectives">Course Objectives</option>
+          <option value="degreeCourses">Degree Courses</option>
+          <option value="teaches">Instructor Assignments</option>
           <option value="evaluations">Evaluations</option>
         </select>
       </div>

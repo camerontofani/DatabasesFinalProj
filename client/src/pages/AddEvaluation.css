@@ -1,0 +1,360 @@
+/* Evaluation form specific styles */
+.evaluation-container {
+  max-width: 800px;
+}
+
+/* Step indicator */
+.step-indicator {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 12px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  opacity: 0.5;
+  transition: opacity 0.3s;
+}
+
+.step.active {
+  opacity: 1;
+}
+
+.step-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.step.active .step-number {
+  background: #667eea;
+  color: white;
+}
+
+.step-label {
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.step.active .step-label {
+  color: #1e293b;
+  font-weight: 500;
+}
+
+/* Context summary */
+.context-summary {
+  background: #f0f4ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.context-summary p {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+/* Sections preview */
+.sections-preview {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+  text-align: center;
+}
+
+/* Section cards */
+.section-cards {
+  display: grid;
+  gap: 1rem;
+}
+
+.section-card {
+  padding: 1.25rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.section-card:hover {
+  border-color: #667eea;
+  background: #f8fafc;
+}
+
+.section-card.selected {
+  border-color: #667eea;
+  background: #f0f4ff;
+}
+
+.section-course {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.section-name {
+  font-size: 1rem;
+  color: #1e293b;
+  margin: 0.25rem 0;
+}
+
+.section-details {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+/* Back step button */
+.back-step-btn {
+  background: none;
+  border: none;
+  color: #667eea;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.5rem 0;
+  margin-bottom: 1rem;
+}
+
+.back-step-btn:hover {
+  text-decoration: underline;
+}
+
+/* Completion status */
+.completion-status {
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.completion-status h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+}
+
+.progress-bar {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.completion-status p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.completed-count {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.total-count {
+  font-weight: 600;
+}
+
+/* Objective list */
+.objective-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.objective-item {
+  padding: 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.objective-item:hover {
+  border-color: #667eea;
+}
+
+.objective-item.selected {
+  border-color: #667eea;
+  background: #f0f4ff;
+}
+
+.objective-item.completed {
+  border-left: 4px solid #10b981;
+}
+
+.objective-item.pending {
+  border-left: 4px solid #f59e0b;
+}
+
+.objective-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.objective-code {
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.status-badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.status-badge.completed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.objective-title {
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+/* Evaluation form section */
+.evaluation-form-section {
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.evaluation-form-section h3 {
+  margin: 0 0 1.25rem 0;
+  color: #1e293b;
+}
+
+/* Grade inputs */
+.grade-inputs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.grade-input {
+  margin-bottom: 0;
+}
+
+.grade-input label {
+  text-align: center;
+  font-weight: 600;
+}
+
+.grade-input input {
+  text-align: center;
+}
+
+/* Duplication section */
+.duplication-section {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.duplication-section h4 {
+  margin: 0 0 0.5rem 0;
+  color: #92400e;
+}
+
+.duplicate-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.duplicate-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+
+.duplicate-option:hover {
+  background: #fef3c7;
+}
+
+.duplicate-option input {
+  width: 16px;
+  height: 16px;
+}
+
+/* Grade sum info and warning */
+.grade-sum-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #166534;
+  margin-top: 0.5rem;
+}
+
+.grade-sum-info.warning {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.grade-sum-info .separator {
+  color: #9ca3af;
+}
+
+.grade-warning {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed #fcd34d;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .step-indicator {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .grade-inputs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+

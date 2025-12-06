@@ -35,6 +35,21 @@ export default function AddData() {
       description: 'Add a new course section',
     },
     {
+      name: 'Course Objective',
+      path: '/add/course-objective',
+      description: 'Link a course to a learning objective',
+    },
+    {
+      name: 'Degree Course',
+      path: '/add/degree-course',
+      description: 'Link a course to a degree (core or elective)',
+    },
+    {
+      name: 'Instructor Assignment',
+      path: '/add/teaches',
+      description: 'Assign an instructor to a section',
+    },
+    {
       name: 'Evaluation',
       path: '/add/evaluation',
       description: 'Add a new evaluation',
