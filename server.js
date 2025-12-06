@@ -153,6 +153,70 @@ app.get('/api/sections', async (req, res) => {
 });
 
 // ----------------------
+//   GET ALL SEMESTERS
+// ----------------------
+app.get('/api/semesters', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM Semester ORDER BY year DESC, FIELD(term, "Fall", "Summer", "Spring");');
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   ADD A NEW SEMESTER
+// ----------------------
+app.post('/api/semesters', async (req, res) => {
+  try {
+    const { term, year } = req.body;
+
+    // Server-side validation
+    if (!term) {
+      return res.status(400).json({ error: 'Term is required.' });
+    }
+
+    // Valid terms (NO Winter!)
+    const validTerms = ['Fall', 'Spring', 'Summer'];
+    if (!validTerms.includes(term)) {
+      return res.status(400).json({ error: `Invalid term. Must be one of: ${validTerms.join(', ')}` });
+    }
+
+    if (!year) {
+      return res.status(400).json({ error: 'Year is required.' });
+    }
+
+    const yearNum = parseInt(year, 10);
+    if (isNaN(yearNum) || yearNum < 1900 || yearNum > 2100) {
+      return res.status(400).json({ error: 'Year must be between 1900 and 2100.' });
+    }
+
+    // Insert into database
+    await pool.query(
+      'INSERT INTO Semester (term, year) VALUES (?, ?)',
+      [term, yearNum]
+    );
+
+    res.status(201).json({ 
+      message: 'Semester added successfully', 
+      term: term,
+      year: yearNum
+    });
+
+  } catch (err) {
+    console.error(err);
+    
+    // Handle duplicate entry error
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'This semester already exists.' });
+    }
+    
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
 //   GET ALL INSTRUCTORS
 // ----------------------
 app.get('/api/instructors', async (req, res) => {
@@ -191,6 +255,69 @@ app.post('/api/instructors', async (req, res) => {
 
   } catch (err) {
     console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   GET ALL LEARNING OBJECTIVES
+// ----------------------
+app.get('/api/objectives', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM LearningObjective;');
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   ADD A NEW LEARNING OBJECTIVE
+// ----------------------
+app.post('/api/objectives', async (req, res) => {
+  try {
+    const { code, title, description } = req.body;
+
+    // Server-side validation
+    if (!code || !code.trim()) {
+      return res.status(400).json({ error: 'Objective code is required.' });
+    }
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: 'Title is required.' });
+    }
+
+    if (title.trim().length > 120) {
+      return res.status(400).json({ error: 'Title must be 120 characters or less.' });
+    }
+
+    // Insert into database
+    await pool.query(
+      'INSERT INTO LearningObjective (code, title, description) VALUES (?, ?, ?)',
+      [code.trim().toUpperCase(), title.trim(), description || null]
+    );
+
+    res.status(201).json({ 
+      message: 'Learning objective added successfully', 
+      code: code.trim().toUpperCase(), 
+      title: title.trim() 
+    });
+
+  } catch (err) {
+    console.error(err);
+    
+    // Handle duplicate entry errors
+    if (err.code === 'ER_DUP_ENTRY') {
+      if (err.message.includes('code') || err.message.includes('PRIMARY')) {
+        return res.status(409).json({ error: 'A learning objective with this code already exists.' });
+      }
+      if (err.message.includes('title')) {
+        return res.status(409).json({ error: 'A learning objective with this title already exists.' });
+      }
+      return res.status(409).json({ error: 'Duplicate entry: This learning objective already exists.' });
+    }
+    
     res.status(500).json({ error: 'Database error' });
   }
 });

@@ -25,6 +25,11 @@ export default function AddData() {
       description: 'Add a new learning objective',
     },
     {
+      name: 'Semester',
+      path: '/add/semester',
+      description: 'Add a new semester (Fall, Spring, Summer)',
+    },
+    {
       name: 'Section',
       path: '/add/section',
       description: 'Add a new course section',

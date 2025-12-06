@@ -13,6 +13,8 @@ function ViewAllData() {
     courses: "/api/courses",
     sections: "/api/sections",
     instructors: "/api/instructors",
+    objectives: "/api/objectives",
+    semesters: "/api/semesters",
   };
 
   const tableLabels = {
@@ -21,6 +23,8 @@ function ViewAllData() {
     courses: "Courses",
     sections: "Sections",
     instructors: "Instructors",
+    objectives: "Learning Objectives",
+    semesters: "Semesters",
   };
 
   useEffect(() => {
@@ -85,8 +89,10 @@ function ViewAllData() {
         >
           <option value="degrees">Degrees</option>
           <option value="courses">Courses</option>
-          <option value="sections">Sections</option>
           <option value="instructors">Instructors</option>
+          <option value="objectives">Learning Objectives</option>
+          <option value="semesters">Semesters</option>
+          <option value="sections">Sections</option>
           <option value="evaluations">Evaluations</option>
         </select>
       </div>
