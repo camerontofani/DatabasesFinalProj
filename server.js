@@ -88,6 +88,58 @@ app.get('/api/courses', async (req, res) => {
 });
 
 // ----------------------
+//   ADD A NEW COURSE
+// ----------------------
+app.post('/api/courses', async (req, res) => {
+  try {
+    const { course_no, course_name } = req.body;
+
+    // Server-side validation
+    if (!course_no || !course_no.trim()) {
+      return res.status(400).json({ error: 'Course number is required.' });
+    }
+
+    if (!course_name || !course_name.trim()) {
+      return res.status(400).json({ error: 'Course name is required.' });
+    }
+
+    // Validate course number format: 2-4 letters + 4 digits
+    const courseNoPattern = /^[A-Za-z]{2,4}[0-9]{4}$/;
+    if (!courseNoPattern.test(course_no.trim())) {
+      return res.status(400).json({ error: 'Course number must be 2-4 letters followed by 4 digits (e.g., CS5330).' });
+    }
+
+    // Insert into database
+    await pool.query(
+      'INSERT INTO Course (course_no, course_name) VALUES (?, ?)',
+      [course_no.trim().toUpperCase(), course_name.trim()]
+    );
+
+    res.status(201).json({ 
+      message: 'Course added successfully', 
+      course_no: course_no.trim().toUpperCase(), 
+      course_name: course_name.trim() 
+    });
+
+  } catch (err) {
+    console.error(err);
+    
+    // Handle duplicate entry errors
+    if (err.code === 'ER_DUP_ENTRY') {
+      if (err.message.includes('course_no') || err.message.includes('PRIMARY')) {
+        return res.status(409).json({ error: 'A course with this course number already exists.' });
+      }
+      if (err.message.includes('course_name')) {
+        return res.status(409).json({ error: 'A course with this name already exists.' });
+      }
+      return res.status(409).json({ error: 'Duplicate entry: This course already exists.' });
+    }
+    
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
 //   GET ALL SECTIONS
 // ----------------------
 app.get('/api/sections', async (req, res) => {
@@ -107,6 +159,36 @@ app.get('/api/instructors', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM Instructor;');
     res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   ADD A NEW INSTRUCTOR
+// ----------------------
+app.post('/api/instructors', async (req, res) => {
+  try {
+    const { instructor_name } = req.body;
+
+    // Server-side validation
+    if (!instructor_name || !instructor_name.trim()) {
+      return res.status(400).json({ error: 'Instructor name is required.' });
+    }
+
+    // Insert into database (instructor_id is auto-generated)
+    const [result] = await pool.query(
+      'INSERT INTO Instructor (instructor_name) VALUES (?)',
+      [instructor_name.trim()]
+    );
+
+    res.status(201).json({ 
+      message: 'Instructor added successfully', 
+      instructor_id: result.insertId,
+      instructor_name: instructor_name.trim()
+    });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });

@@ -196,6 +196,124 @@
   cursor: not-allowed;
 }
 
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+/* Modal */
+.modal {
+  background: white;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 450px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.warning-modal .modal-header {
+  background: #fef3c7;
+  border-bottom: 1px solid #fcd34d;
+}
+
+.warning-modal .modal-header h2 {
+  color: #92400e;
+}
+
+.modal-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #1a1a2e;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-body p {
+  margin: 0 0 1rem 0;
+  color: #374151;
+}
+
+.existing-list {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.existing-item {
+  padding: 0.5rem 0.75rem;
+  color: #4b5563;
+  font-size: 0.95rem;
+}
+
+.existing-item + .existing-item {
+  border-top: 1px solid #e2e8f0;
+}
+
+.warning-text {
+  color: #92400e;
+  background: #fef3c7;
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.modal-btn {
+  flex: 1;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-btn {
+  background: white;
+  border: 2px solid #e2e8f0;
+  color: #374151;
+}
+
+.cancel-btn:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.confirm-btn {
+  background: #667eea;
+  border: none;
+  color: white;
+}
+
+.confirm-btn:hover {
+  background: #5a67d8;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
   .form-container {
@@ -213,6 +331,10 @@
   .submit-btn,
   .secondary-btn {
     width: 100%;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
   }
 }
 
