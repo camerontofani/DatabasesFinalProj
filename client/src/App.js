@@ -14,6 +14,7 @@ import AddCourseObjective from './pages/AddCourseObjective';
 import AddDegreeCourse from './pages/AddDegreeCourse';
 import AddEvaluation from './pages/AddEvaluation';
 import AddTeaches from './pages/AddTeaches';
+import Queries from './pages/Queries';
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
         <Route path="/add/degree-course" element={<AddDegreeCourse />} />
         <Route path="/add/teaches" element={<AddTeaches />} />
         <Route path="/add/evaluation" element={<AddEvaluation />} />
+        <Route path="/queries" element={<Queries />} />
       </Routes>
     </Router>
   );

@@ -536,6 +536,119 @@ app.post('/api/degree-courses', async (req, res) => {
 });
 
 // ----------------------
+//   GET DEGREE DETAILS (courses, sections, objectives)
+// ----------------------
+app.get('/api/degrees/:name/:level/details', async (req, res) => {
+  try {
+    const { name, level } = req.params;
+    
+    // Get courses for this degree (with is_core flag)
+    const [courses] = await pool.query(`
+      SELECT dc.course_no, c.course_name, dc.is_core
+      FROM DegreeCourse dc
+      JOIN Course c ON dc.course_no = c.course_no
+      WHERE dc.degree_name = ? AND dc.degree_level = ?
+      ORDER BY dc.is_core DESC, dc.course_no
+    `, [name, level]);
+    
+    // Get sections for courses in this degree
+    const [sections] = await pool.query(`
+      SELECT s.course_no, s.section_no, s.term, s.year, s.student_count
+      FROM Section s
+      JOIN DegreeCourse dc ON s.course_no = dc.course_no
+      WHERE dc.degree_name = ? AND dc.degree_level = ?
+      ORDER BY s.year DESC, s.term, s.course_no, s.section_no
+    `, [name, level]);
+    
+    // Get learning objectives for courses in this degree
+    const [objectives] = await pool.query(`
+      SELECT DISTINCT co.course_no, co.objective_code, lo.title
+      FROM CourseObjective co
+      JOIN LearningObjective lo ON co.objective_code = lo.code
+      JOIN DegreeCourse dc ON co.course_no = dc.course_no
+      WHERE dc.degree_name = ? AND dc.degree_level = ?
+      ORDER BY co.course_no, co.objective_code
+    `, [name, level]);
+    
+    res.json({ courses, sections, objectives });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   GET COURSE DETAILS (sections, objectives, degrees)
+// ----------------------
+app.get('/api/courses/:course_no/details', async (req, res) => {
+  try {
+    const { course_no } = req.params;
+    
+    // Get all sections with instructor info
+    const [sections] = await pool.query(`
+      SELECT s.section_no, s.term, s.year, s.student_count, i.instructor_name
+      FROM Section s
+      LEFT JOIN Teaches t ON s.course_no = t.course_no 
+        AND s.section_no = t.section_no 
+        AND s.term = t.term 
+        AND s.year = t.year
+      LEFT JOIN Instructor i ON t.instructor_id = i.instructor_id
+      WHERE s.course_no = ?
+      ORDER BY s.year DESC, s.term, s.section_no
+    `, [course_no]);
+    
+    // Get learning objectives for this course
+    const [objectives] = await pool.query(`
+      SELECT co.objective_code, lo.title
+      FROM CourseObjective co
+      JOIN LearningObjective lo ON co.objective_code = lo.code
+      WHERE co.course_no = ?
+      ORDER BY co.objective_code
+    `, [course_no]);
+    
+    // Get degrees that use this course
+    const [degrees] = await pool.query(`
+      SELECT degree_name, degree_level, is_core
+      FROM DegreeCourse
+      WHERE course_no = ?
+      ORDER BY degree_name, degree_level
+    `, [course_no]);
+    
+    res.json({ sections, objectives, degrees });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   GET INSTRUCTOR DETAILS (sections taught)
+// ----------------------
+app.get('/api/instructors/:id/details', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Get all sections this instructor teaches
+    const [sections] = await pool.query(`
+      SELECT t.course_no, c.course_name, t.section_no, t.term, t.year, s.student_count
+      FROM Teaches t
+      JOIN Course c ON t.course_no = c.course_no
+      JOIN Section s ON t.course_no = s.course_no 
+        AND t.section_no = s.section_no 
+        AND t.term = s.term 
+        AND t.year = s.year
+      WHERE t.instructor_id = ?
+      ORDER BY t.year DESC, t.term, t.course_no
+    `, [id]);
+    
+    res.json({ sections });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
 //   GET ALL TEACHES (instructor-section assignments)
 // ----------------------
 app.get('/api/teaches', async (req, res) => {
@@ -907,6 +1020,128 @@ app.put('/api/evaluations/update', async (req, res) => {
 
     res.json({ message: 'Evaluation updated successfully' });
 
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   QUERY: Evaluation Status by Section for a Semester
+// ----------------------
+app.get('/api/queries/evaluation-status', async (req, res) => {
+  try {
+    const { term, year } = req.query;
+    
+    if (!term || !year) {
+      return res.status(400).json({ error: 'Term and year are required.' });
+    }
+
+    // Get all sections for this semester with their evaluation status
+    const [sections] = await pool.query(`
+      SELECT 
+        s.course_no,
+        c.course_name,
+        s.section_no,
+        s.student_count,
+        i.instructor_name,
+        (SELECT COUNT(DISTINCT co.objective_code) 
+         FROM CourseObjective co 
+         WHERE co.course_no = s.course_no) as total_objectives,
+        (SELECT COUNT(DISTINCT e.objective_code) 
+         FROM Evaluation e 
+         WHERE e.course_no = s.course_no 
+           AND e.section_no = s.section_no 
+           AND e.term = s.term 
+           AND e.year = s.year) as evaluations_entered,
+        (SELECT COUNT(*) 
+         FROM Evaluation e 
+         WHERE e.course_no = s.course_no 
+           AND e.section_no = s.section_no 
+           AND e.term = s.term 
+           AND e.year = s.year
+           AND e.improvement_text IS NOT NULL 
+           AND e.improvement_text != '') as improvement_count
+      FROM Section s
+      JOIN Course c ON s.course_no = c.course_no
+      LEFT JOIN Teaches t ON s.course_no = t.course_no 
+        AND s.section_no = t.section_no 
+        AND s.term = t.term 
+        AND s.year = t.year
+      LEFT JOIN Instructor i ON t.instructor_id = i.instructor_id
+      WHERE s.term = ? AND s.year = ?
+      ORDER BY s.course_no, s.section_no
+    `, [term, parseInt(year, 10)]);
+
+    // Calculate status for each section
+    const results = sections.map(sec => {
+      let status;
+      if (sec.total_objectives === 0) {
+        status = 'Not Entered'; // No objectives linked to course
+      } else if (sec.evaluations_entered === 0) {
+        status = 'Not Entered';
+      } else if (sec.evaluations_entered >= sec.total_objectives) {
+        status = 'Complete';
+      } else {
+        status = 'Partial';
+      }
+      
+      return {
+        ...sec,
+        status,
+        has_improvement: sec.improvement_count > 0
+      };
+    });
+
+    res.json(results);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   QUERY: Sections Meeting Pass Rate Threshold
+// ----------------------
+app.get('/api/queries/pass-rate', async (req, res) => {
+  try {
+    const { term, year, percentage } = req.query;
+    
+    if (!term || !year || percentage === undefined) {
+      return res.status(400).json({ error: 'Term, year, and percentage are required.' });
+    }
+
+    const pct = parseFloat(percentage);
+    if (isNaN(pct) || pct < 0 || pct > 100) {
+      return res.status(400).json({ error: 'Percentage must be between 0 and 100.' });
+    }
+
+    // Get evaluations where non-F percentage meets threshold
+    const [results] = await pool.query(`
+      SELECT 
+        e.course_no,
+        e.section_no,
+        e.degree_name,
+        e.degree_level,
+        e.objective_code,
+        e.a_no,
+        e.b_no,
+        e.c_no,
+        e.f_no,
+        (e.a_no + e.b_no + e.c_no + e.f_no) as total_graded,
+        (e.a_no + e.b_no + e.c_no) as non_f_count,
+        CASE 
+          WHEN (e.a_no + e.b_no + e.c_no + e.f_no) > 0 
+          THEN ((e.a_no + e.b_no + e.c_no) * 100.0 / (e.a_no + e.b_no + e.c_no + e.f_no))
+          ELSE 0 
+        END as pass_rate
+      FROM Evaluation e
+      WHERE e.term = ? AND e.year = ?
+      HAVING pass_rate >= ?
+      ORDER BY pass_rate DESC, e.course_no, e.section_no
+    `, [term, parseInt(year, 10), pct]);
+
+    res.json(results);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
