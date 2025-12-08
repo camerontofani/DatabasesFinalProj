@@ -1148,6 +1148,461 @@ app.get('/api/queries/pass-rate', async (req, res) => {
   }
 });
 
+// =====================================================
+//   DELETE ENDPOINTS
+// =====================================================
+
+// Helper function for user-friendly FK error messages
+const getFKErrorMessage = (entityType) => {
+  const messages = {
+    'Degree': 'Cannot delete: This degree has courses or evaluations associated with it.',
+    'Course': 'Cannot delete: This course has sections, objectives, or degree associations.',
+    'Instructor': 'Cannot delete: This instructor is assigned to teach sections.',
+    'LearningObjective': 'Cannot delete: This objective is linked to courses or evaluations.',
+    'Semester': 'Cannot delete: This semester has sections associated with it.',
+    'Section': 'Cannot delete: This section has instructor assignments or evaluations.',
+    'CourseObjective': 'Cannot delete: This course-objective link is used in evaluations.',
+    'DegreeCourse': 'Cannot delete: This degree-course link is used in evaluations.',
+    'Teaches': 'Cannot delete: Evaluations exist for this instructor assignment.',
+    'Evaluation': 'Evaluation deleted successfully.'
+  };
+  return messages[entityType] || 'Cannot delete: This record is referenced by other data.';
+};
+
+// ----------------------
+//   DELETE A DEGREE
+// ----------------------
+app.delete('/api/degrees/:name/:level', async (req, res) => {
+  try {
+    const { name, level } = req.params;
+    const [result] = await pool.query(
+      'DELETE FROM Degree WHERE name = ? AND level = ?',
+      [decodeURIComponent(name), decodeURIComponent(level)]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Degree not found.' });
+    }
+    res.json({ message: 'Degree deleted successfully.' });
+  } catch (err) {
+    console.error(err);
+    if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {
+      return res.status(409).json({ error: getFKErrorMessage('Degree') });
+    }
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   DELETE A COURSE
+// ----------------------
+app.delete('/api/courses/:course_no', async (req, res) => {
+  try {
+    const { course_no } = req.params;
+    const [result] = await pool.query(
+      'DELETE FROM Course WHERE course_no = ?',
+      [decodeURIComponent(course_no)]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Course not found.' });
+    }
+    res.json({ message: 'Course deleted successfully.' });
+  } catch (err) {
+    console.error(err);
+    if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {
+      return res.status(409).json({ error: getFKErrorMessage('Course') });
+    }
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   DELETE AN INSTRUCTOR
+// ----------------------
+app.delete('/api/instructors/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [result] = await pool.query(
+      'DELETE FROM Instructor WHERE instructor_id = ?',
+      [parseInt(id)]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Instructor not found.' });
+    }
+    res.json({ message: 'Instructor deleted successfully.' });
+  } catch (err) {
+    console.error(err);
+    if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {
+      return res.status(409).json({ error: getFKErrorMessage('Instructor') });
+    }
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   DELETE A LEARNING OBJECTIVE
+// ----------------------
+app.delete('/api/objectives/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+    const [result] = await pool.query(
+      'DELETE FROM LearningObjective WHERE code = ?',
+      [decodeURIComponent(code)]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Learning objective not found.' });
+    }
+    res.json({ message: 'Learning objective deleted successfully.' });
+  } catch (err) {
+    console.error(err);
+    if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {
+      return res.status(409).json({ error: getFKErrorMessage('LearningObjective') });
+    }
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   DELETE A SEMESTER
+// ----------------------
+app.delete('/api/semesters/:term/:year', async (req, res) => {
+  try {
+    const { term, year } = req.params;
+    const [result] = await pool.query(
+      'DELETE FROM Semester WHERE term = ? AND year = ?',
+      [decodeURIComponent(term), parseInt(year)]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Semester not found.' });
+    }
+    res.json({ message: 'Semester deleted successfully.' });
+  } catch (err) {
+    console.error(err);
+    if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {
+      return res.status(409).json({ error: getFKErrorMessage('Semester') });
+    }
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   DELETE A SECTION
+// ----------------------
+app.delete('/api/sections/:course_no/:section_no/:term/:year', async (req, res) => {
+  try {
+    const { course_no, section_no, term, year } = req.params;
+    const [result] = await pool.query(
+      'DELETE FROM Section WHERE course_no = ? AND section_no = ? AND term = ? AND year = ?',
+      [decodeURIComponent(course_no), decodeURIComponent(section_no), decodeURIComponent(term), parseInt(year)]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Section not found.' });
+    }
+    res.json({ message: 'Section deleted successfully.' });
+  } catch (err) {
+    console.error(err);
+    if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {
+      return res.status(409).json({ error: getFKErrorMessage('Section') });
+    }
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   DELETE A COURSE OBJECTIVE
+// ----------------------
+app.delete('/api/course-objectives/:course_no/:objective_code', async (req, res) => {
+  try {
+    const { course_no, objective_code } = req.params;
+    const [result] = await pool.query(
+      'DELETE FROM CourseObjective WHERE course_no = ? AND objective_code = ?',
+      [decodeURIComponent(course_no), decodeURIComponent(objective_code)]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Course objective link not found.' });
+    }
+    res.json({ message: 'Course objective link deleted successfully.' });
+  } catch (err) {
+    console.error(err);
+    if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {
+      return res.status(409).json({ error: getFKErrorMessage('CourseObjective') });
+    }
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   DELETE A DEGREE COURSE
+// ----------------------
+app.delete('/api/degree-courses/:degree_name/:degree_level/:course_no', async (req, res) => {
+  try {
+    const { degree_name, degree_level, course_no } = req.params;
+    const [result] = await pool.query(
+      'DELETE FROM DegreeCourse WHERE degree_name = ? AND degree_level = ? AND course_no = ?',
+      [decodeURIComponent(degree_name), decodeURIComponent(degree_level), decodeURIComponent(course_no)]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Degree course link not found.' });
+    }
+    res.json({ message: 'Degree course link deleted successfully.' });
+  } catch (err) {
+    console.error(err);
+    if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {
+      return res.status(409).json({ error: getFKErrorMessage('DegreeCourse') });
+    }
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   DELETE A TEACHES RECORD (with evaluation check)
+// ----------------------
+app.delete('/api/teaches/:instructor_id/:course_no/:section_no/:term/:year', async (req, res) => {
+  try {
+    const { instructor_id, course_no, section_no, term, year } = req.params;
+    const courseNoDecoded = decodeURIComponent(course_no);
+    const sectionNoDecoded = decodeURIComponent(section_no);
+    const termDecoded = decodeURIComponent(term);
+    const yearParsed = parseInt(year);
+
+    // Check if evaluations exist for this section
+    // If so, don't allow deleting the instructor assignment
+    const [evalCheck] = await pool.query(
+      'SELECT COUNT(*) as count FROM Evaluation WHERE course_no = ? AND section_no = ? AND term = ? AND year = ?',
+      [courseNoDecoded, sectionNoDecoded, termDecoded, yearParsed]
+    );
+    
+    if (evalCheck[0].count > 0) {
+      return res.status(409).json({ 
+        error: 'Cannot delete: Evaluations have been entered for this section. The instructor assignment must remain to maintain data integrity.' 
+      });
+    }
+
+    const [result] = await pool.query(
+      'DELETE FROM Teaches WHERE instructor_id = ? AND course_no = ? AND section_no = ? AND term = ? AND year = ?',
+      [parseInt(instructor_id), courseNoDecoded, sectionNoDecoded, termDecoded, yearParsed]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Instructor assignment not found.' });
+    }
+    res.json({ message: 'Instructor assignment deleted successfully.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   DELETE AN EVALUATION
+// ----------------------
+app.delete('/api/evaluations/:degree_name/:degree_level/:course_no/:section_no/:term/:year/:objective_code', async (req, res) => {
+  try {
+    const { degree_name, degree_level, course_no, section_no, term, year, objective_code } = req.params;
+    const [result] = await pool.query(
+      `DELETE FROM Evaluation 
+       WHERE degree_name = ? AND degree_level = ? AND course_no = ? AND section_no = ? 
+       AND term = ? AND year = ? AND objective_code = ?`,
+      [
+        decodeURIComponent(degree_name), 
+        decodeURIComponent(degree_level), 
+        decodeURIComponent(course_no), 
+        decodeURIComponent(section_no), 
+        decodeURIComponent(term), 
+        parseInt(year), 
+        decodeURIComponent(objective_code)
+      ]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Evaluation not found.' });
+    }
+    res.json({ message: 'Evaluation deleted successfully.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// =====================================================
+//   UPDATE (PUT) ENDPOINTS
+// =====================================================
+
+// ----------------------
+//   UPDATE AN INSTRUCTOR
+// ----------------------
+app.put('/api/instructors/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { instructor_name } = req.body;
+
+    if (!instructor_name || !instructor_name.trim()) {
+      return res.status(400).json({ error: 'Instructor name is required.' });
+    }
+
+    const [result] = await pool.query(
+      'UPDATE Instructor SET instructor_name = ? WHERE instructor_id = ?',
+      [instructor_name.trim(), parseInt(id)]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Instructor not found.' });
+    }
+
+    res.json({ message: 'Instructor updated successfully.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   UPDATE A LEARNING OBJECTIVE
+// ----------------------
+app.put('/api/objectives/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+    const { title, description } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: 'Title is required.' });
+    }
+
+    const [result] = await pool.query(
+      'UPDATE LearningObjective SET title = ?, description = ? WHERE code = ?',
+      [title.trim(), description?.trim() || null, decodeURIComponent(code)]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Learning objective not found.' });
+    }
+
+    res.json({ message: 'Learning objective updated successfully.' });
+  } catch (err) {
+    console.error(err);
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'A learning objective with this title already exists.' });
+    }
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   UPDATE A SECTION
+// ----------------------
+app.put('/api/sections/:course_no/:section_no/:term/:year', async (req, res) => {
+  try {
+    const { course_no, section_no, term, year } = req.params;
+    const { student_count } = req.body;
+
+    if (student_count === undefined || student_count === null) {
+      return res.status(400).json({ error: 'Student count is required.' });
+    }
+
+    const count = parseInt(student_count);
+    if (isNaN(count) || count < 0) {
+      return res.status(400).json({ error: 'Student count must be a non-negative number.' });
+    }
+
+    const [result] = await pool.query(
+      'UPDATE Section SET student_count = ? WHERE course_no = ? AND section_no = ? AND term = ? AND year = ?',
+      [count, decodeURIComponent(course_no), decodeURIComponent(section_no), decodeURIComponent(term), parseInt(year)]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Section not found.' });
+    }
+
+    res.json({ message: 'Section updated successfully.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   UPDATE AN EVALUATION
+// ----------------------
+app.put('/api/evaluations/update', async (req, res) => {
+  try {
+    const { 
+      degree_name, degree_level, course_no, section_no, term, year,
+      objective_code, eval_method, a_no, b_no, c_no, f_no, improvement_text,
+      duplicate_to
+    } = req.body;
+
+    // Validation
+    if (!degree_name || !degree_level || !course_no || !section_no || !term || !year || !objective_code) {
+      return res.status(400).json({ error: 'All key fields are required.' });
+    }
+
+    if (!eval_method || !eval_method.trim()) {
+      return res.status(400).json({ error: 'Evaluation method is required.' });
+    }
+
+    const grades = [a_no, b_no, c_no, f_no];
+    for (const g of grades) {
+      if (g === undefined || g === null) {
+        return res.status(400).json({ error: 'All grade counts are required.' });
+      }
+      const num = parseInt(g);
+      if (isNaN(num) || num < 0) {
+        return res.status(400).json({ error: 'Grade counts must be non-negative numbers.' });
+      }
+    }
+
+    const [result] = await pool.query(
+      `UPDATE Evaluation 
+       SET eval_method = ?, a_no = ?, b_no = ?, c_no = ?, f_no = ?, improvement_text = ?
+       WHERE degree_name = ? AND degree_level = ? AND course_no = ? AND section_no = ? 
+       AND term = ? AND year = ? AND objective_code = ?`,
+      [
+        eval_method.trim(), 
+        parseInt(a_no), parseInt(b_no), parseInt(c_no), parseInt(f_no),
+        improvement_text?.trim() || null,
+        degree_name, degree_level, course_no, section_no, term, parseInt(year), objective_code
+      ]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Evaluation not found.' });
+    }
+
+    // Handle duplication to other degrees
+    let duplicated = 0;
+    if (duplicate_to && duplicate_to.length > 0) {
+      for (const degKey of duplicate_to) {
+        const [dn, dl] = degKey.split('|');
+        const [dupCheck] = await pool.query(
+          'SELECT 1 FROM DegreeCourse WHERE degree_name = ? AND degree_level = ? AND course_no = ?',
+          [dn, dl, course_no]
+        );
+        if (dupCheck.length > 0) {
+          try {
+            // Try to update existing, or insert new
+            await pool.query(
+              `INSERT INTO Evaluation 
+               (degree_name, degree_level, course_no, section_no, term, year, objective_code, eval_method, a_no, b_no, c_no, f_no, improvement_text)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON DUPLICATE KEY UPDATE 
+               eval_method = VALUES(eval_method), a_no = VALUES(a_no), b_no = VALUES(b_no), 
+               c_no = VALUES(c_no), f_no = VALUES(f_no), improvement_text = VALUES(improvement_text)`,
+              [dn, dl, course_no, section_no, term, parseInt(year), objective_code, 
+               eval_method.trim(), parseInt(a_no), parseInt(b_no), parseInt(c_no), parseInt(f_no), 
+               improvement_text?.trim() || null]
+            );
+            duplicated++;
+          } catch (dupErr) {
+            console.error('Duplication error:', dupErr);
+          }
+        }
+      }
+    }
+
+    res.json({ message: 'Evaluation updated successfully.', duplicated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 // 3) Start the server
 const PORT = 4000;
 app.listen(PORT, () => {

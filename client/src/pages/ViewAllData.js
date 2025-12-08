@@ -18,6 +18,14 @@ function ViewAllData() {
   const [fromSemester, setFromSemester] = useState('');
   const [toSemester, setToSemester] = useState('');
 
+  // Edit/Delete modal state
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editItem, setEditItem] = useState(null);
+  const [editFormData, setEditFormData] = useState({});
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+
   const endpoints = {
     evaluations: "/api/evaluations",
     degrees: "/api/degrees",
@@ -356,6 +364,184 @@ function ViewAllData() {
     return null;
   };
 
+  // =====================================================
+  // EDIT/DELETE FUNCTIONALITY
+  // =====================================================
+
+  // Open edit modal
+  const openEditModal = (item) => {
+    setEditItem(item);
+    setEditFormData({ ...item });
+    setEditError('');
+    setDeleteConfirm(false);
+    setEditModalOpen(true);
+  };
+
+  // Close edit modal
+  const closeEditModal = () => {
+    setEditModalOpen(false);
+    setEditItem(null);
+    setEditFormData({});
+    setEditError('');
+    setDeleteConfirm(false);
+  };
+
+  // Get editable fields for each table
+  const getEditableFields = () => {
+    switch (table) {
+      case 'instructors':
+        return [{ key: 'instructor_name', label: 'Name', type: 'text' }];
+      case 'objectives':
+        return [
+          { key: 'title', label: 'Title', type: 'text' },
+          { key: 'description', label: 'Description', type: 'textarea' }
+        ];
+      case 'sections':
+        return [{ key: 'student_count', label: 'Student Count', type: 'number' }];
+      default:
+        return []; // Most tables have no editable fields (PKs only)
+    }
+  };
+
+  // Handle edit form submission
+  const handleEditSubmit = async () => {
+    setEditLoading(true);
+    setEditError('');
+
+    try {
+      let url = '';
+      let body = {};
+
+      switch (table) {
+        case 'instructors':
+          url = `http://localhost:4000/api/instructors/${editItem.instructor_id}`;
+          body = { instructor_name: editFormData.instructor_name };
+          break;
+        case 'objectives':
+          url = `http://localhost:4000/api/objectives/${encodeURIComponent(editItem.code)}`;
+          body = { title: editFormData.title, description: editFormData.description };
+          break;
+        case 'sections':
+          url = `http://localhost:4000/api/sections/${encodeURIComponent(editItem.course_no)}/${encodeURIComponent(editItem.section_no)}/${encodeURIComponent(editItem.term)}/${editItem.year}`;
+          body = { student_count: editFormData.student_count };
+          break;
+        default:
+          setEditError('This record type cannot be edited.');
+          setEditLoading(false);
+          return;
+      }
+
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setEditError(result.error || 'Failed to update record.');
+        setEditLoading(false);
+        return;
+      }
+
+      // Refresh data
+      const refreshResponse = await fetch(`http://localhost:4000${endpoints[table]}`);
+      setData(await refreshResponse.json());
+      closeEditModal();
+    } catch (err) {
+      setEditError('Could not connect to server.');
+    }
+
+    setEditLoading(false);
+  };
+
+  // Get delete URL for each table type
+  const getDeleteUrl = () => {
+    const item = editItem;
+    switch (table) {
+      case 'degrees':
+        return `http://localhost:4000/api/degrees/${encodeURIComponent(item.name)}/${encodeURIComponent(item.level)}`;
+      case 'courses':
+        return `http://localhost:4000/api/courses/${encodeURIComponent(item.course_no)}`;
+      case 'instructors':
+        return `http://localhost:4000/api/instructors/${item.instructor_id}`;
+      case 'objectives':
+        return `http://localhost:4000/api/objectives/${encodeURIComponent(item.code)}`;
+      case 'semesters':
+        return `http://localhost:4000/api/semesters/${encodeURIComponent(item.term)}/${item.year}`;
+      case 'sections':
+        return `http://localhost:4000/api/sections/${encodeURIComponent(item.course_no)}/${encodeURIComponent(item.section_no)}/${encodeURIComponent(item.term)}/${item.year}`;
+      case 'courseObjectives':
+        return `http://localhost:4000/api/course-objectives/${encodeURIComponent(item.course_no)}/${encodeURIComponent(item.objective_code)}`;
+      case 'degreeCourses':
+        return `http://localhost:4000/api/degree-courses/${encodeURIComponent(item.degree_name)}/${encodeURIComponent(item.degree_level)}/${encodeURIComponent(item.course_no)}`;
+      case 'teaches':
+        return `http://localhost:4000/api/teaches/${item.instructor_id}/${encodeURIComponent(item.course_no)}/${encodeURIComponent(item.section_no)}/${encodeURIComponent(item.term)}/${item.year}`;
+      case 'evaluations':
+        return `http://localhost:4000/api/evaluations/${encodeURIComponent(item.degree_name)}/${encodeURIComponent(item.degree_level)}/${encodeURIComponent(item.course_no)}/${encodeURIComponent(item.section_no)}/${encodeURIComponent(item.term)}/${item.year}/${encodeURIComponent(item.objective_code)}`;
+      default:
+        return '';
+    }
+  };
+
+  // Handle delete
+  const handleDelete = async () => {
+    setEditLoading(true);
+    setEditError('');
+
+    try {
+      const url = getDeleteUrl();
+      if (!url) {
+        setEditError('Cannot delete this record type.');
+        setEditLoading(false);
+        return;
+      }
+
+      const response = await fetch(url, { method: 'DELETE' });
+      const result = await response.json();
+
+      if (!response.ok) {
+        setEditError(result.error || 'Failed to delete record.');
+        setEditLoading(false);
+        return;
+      }
+
+      // Refresh data
+      const refreshResponse = await fetch(`http://localhost:4000${endpoints[table]}`);
+      setData(await refreshResponse.json());
+      closeEditModal();
+      
+      // Close details panel if open
+      if (detailsOpen) {
+        setDetailsOpen(false);
+        setSelectedItem(null);
+      }
+    } catch (err) {
+      setEditError('Could not connect to server.');
+    }
+
+    setEditLoading(false);
+  };
+
+  // Get display name for current item
+  const getItemDisplayName = () => {
+    if (!editItem) return '';
+    switch (table) {
+      case 'degrees': return `${editItem.name} (${editItem.level})`;
+      case 'courses': return `${editItem.course_no} - ${editItem.course_name}`;
+      case 'instructors': return editItem.instructor_name;
+      case 'objectives': return `${editItem.code} - ${editItem.title}`;
+      case 'semesters': return `${editItem.term} ${editItem.year}`;
+      case 'sections': return `${editItem.course_no} Section ${editItem.section_no} (${editItem.term} ${editItem.year})`;
+      case 'courseObjectives': return `${editItem.course_no} → ${editItem.objective_code}`;
+      case 'degreeCourses': return `${editItem.degree_name} (${editItem.degree_level}) → ${editItem.course_no}`;
+      case 'teaches': return `${editItem.instructor_name || 'Instructor'} → ${editItem.course_no} Section ${editItem.section_no}`;
+      case 'evaluations': return `${editItem.degree_name} / ${editItem.course_no} / ${editItem.objective_code}`;
+      default: return 'Record';
+    }
+  };
+
   return (
     <div className="view-data-container">
       <Link to="/" className="back-button">
@@ -415,7 +601,7 @@ function ViewAllData() {
                     {columns.map((col) => (
                       <th key={col}>{formatColumnName(col)}</th>
                     ))}
-                    {tablesWithDetails.includes(table) && <th>Actions</th>}
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -424,16 +610,22 @@ function ViewAllData() {
                       {columns.map((col) => (
                         <td key={col}>{formatCellValue(row[col])}</td>
                       ))}
-                      {tablesWithDetails.includes(table) && (
-                        <td>
+                      <td className="actions-cell">
+                        {tablesWithDetails.includes(table) && (
                           <button 
                             className="details-btn"
                             onClick={() => fetchDetails(row)}
                           >
                             View Details
                           </button>
-                        </td>
-                      )}
+                        )}
+                        <button 
+                          className="edit-btn"
+                          onClick={() => openEditModal(row)}
+                        >
+                          Edit
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -458,6 +650,104 @@ function ViewAllData() {
           </div>
         )}
       </div>
+
+      {/* Edit/Delete Modal */}
+      {editModalOpen && (
+        <div className="modal-overlay" onClick={closeEditModal}>
+          <div className="edit-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{deleteConfirm ? 'Confirm Delete' : 'Edit Record'}</h3>
+              <button className="close-modal" onClick={closeEditModal}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+
+            <div className="modal-body">
+              {editError && (
+                <div className="modal-error">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="15" y1="9" x2="9" y2="15"/>
+                    <line x1="9" y1="9" x2="15" y2="15"/>
+                  </svg>
+                  {editError}
+                </div>
+              )}
+
+              {deleteConfirm ? (
+                <div className="delete-confirm">
+                  <p>Are you sure you want to delete:</p>
+                  <p className="delete-item-name">{getItemDisplayName()}</p>
+                  <p className="delete-warning">This action cannot be undone.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="record-info">
+                    <strong>{getItemDisplayName()}</strong>
+                  </div>
+
+                  {getEditableFields().length > 0 ? (
+                    <div className="edit-fields">
+                      {getEditableFields().map((field) => (
+                        <div key={field.key} className="edit-field">
+                          <label>{field.label}</label>
+                          {field.type === 'textarea' ? (
+                            <textarea
+                              value={editFormData[field.key] || ''}
+                              onChange={(e) => setEditFormData({ ...editFormData, [field.key]: e.target.value })}
+                              rows={3}
+                            />
+                          ) : (
+                            <input
+                              type={field.type}
+                              value={editFormData[field.key] || ''}
+                              onChange={(e) => setEditFormData({ ...editFormData, [field.key]: e.target.value })}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="no-editable-fields">This record has no editable fields (only primary keys).</p>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              {deleteConfirm ? (
+                <>
+                  <button className="btn-cancel" onClick={() => setDeleteConfirm(false)} disabled={editLoading}>
+                    Cancel
+                  </button>
+                  <button className="btn-delete-confirm" onClick={handleDelete} disabled={editLoading}>
+                    {editLoading ? 'Deleting...' : 'Yes, Delete'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="btn-delete" onClick={() => setDeleteConfirm(true)} disabled={editLoading}>
+                    Delete
+                  </button>
+                  <div className="modal-footer-right">
+                    <button className="btn-cancel" onClick={closeEditModal} disabled={editLoading}>
+                      Cancel
+                    </button>
+                    {getEditableFields().length > 0 && (
+                      <button className="btn-save" onClick={handleEditSubmit} disabled={editLoading}>
+                        {editLoading ? 'Saving...' : 'Save Changes'}
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
