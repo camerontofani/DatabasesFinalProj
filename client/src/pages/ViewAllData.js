@@ -35,6 +35,7 @@ function ViewAllData() {
     objectives: "/api/objectives",
     semesters: "/api/semesters",
     courseObjectives: "/api/course-objectives",
+    degreeObjectives: "/api/degree-objectives",
     degreeCourses: "/api/degree-courses",
     teaches: "/api/teaches",
   };
@@ -48,6 +49,7 @@ function ViewAllData() {
     objectives: "Learning Objectives",
     semesters: "Semesters",
     courseObjectives: "Course Objectives",
+    degreeObjectives: "Degree Objectives",
     degreeCourses: "Degree Courses",
     teaches: "Instructor Assignments",
   };
@@ -474,6 +476,8 @@ function ViewAllData() {
         return `http://localhost:4000/api/sections/${encodeURIComponent(item.course_no)}/${encodeURIComponent(item.section_no)}/${encodeURIComponent(item.term)}/${item.year}`;
       case 'courseObjectives':
         return `http://localhost:4000/api/course-objectives/${encodeURIComponent(item.course_no)}/${encodeURIComponent(item.objective_code)}`;
+      case 'degreeObjectives':
+        return `http://localhost:4000/api/degree-objectives/${encodeURIComponent(item.degree_name)}/${encodeURIComponent(item.degree_level)}/${encodeURIComponent(item.objective_code)}`;
       case 'degreeCourses':
         return `http://localhost:4000/api/degree-courses/${encodeURIComponent(item.degree_name)}/${encodeURIComponent(item.degree_level)}/${encodeURIComponent(item.course_no)}`;
       case 'teaches':
@@ -535,6 +539,7 @@ function ViewAllData() {
       case 'semesters': return `${editItem.term} ${editItem.year}`;
       case 'sections': return `${editItem.course_no} Section ${editItem.section_no} (${editItem.term} ${editItem.year})`;
       case 'courseObjectives': return `${editItem.course_no} → ${editItem.objective_code}`;
+      case 'degreeObjectives': return `${editItem.degree_name} (${editItem.degree_level}) → ${editItem.objective_code}`;
       case 'degreeCourses': return `${editItem.degree_name} (${editItem.degree_level}) → ${editItem.course_no}`;
       case 'teaches': return `${editItem.instructor_name || 'Instructor'} → ${editItem.course_no} Section ${editItem.section_no}`;
       case 'evaluations': return `${editItem.degree_name} / ${editItem.course_no} / ${editItem.objective_code}`;
@@ -571,6 +576,7 @@ function ViewAllData() {
           <option value="semesters">Semesters</option>
           <option value="sections">Sections</option>
           <option value="courseObjectives">Course Objectives</option>
+          <option value="degreeObjectives">Degree Objectives</option>
           <option value="degreeCourses">Degree Courses</option>
           <option value="teaches">Instructor Assignments</option>
           <option value="evaluations">Evaluations</option>

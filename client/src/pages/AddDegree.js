@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './AddForm.css';
 
@@ -10,22 +10,49 @@ export default function AddDegree() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Objectives state
+  const [objectives, setObjectives] = useState([]);
+  const [selectedObjectives, setSelectedObjectives] = useState([]);
+  const [loadingObjectives, setLoadingObjectives] = useState(true);
+
   // Valid degree levels from the project requirements
   const validLevels = ['BA', 'BS', 'MS', 'Ph.D.', 'Cert'];
 
-  // Sanitize and normalize name:
-  // 1. Remove special characters (keep only letters, numbers, spaces)
-  // 2. Remove extra spaces
-  // 3. Convert to Title Case
+  // Fetch available objectives on mount
+  useEffect(() => {
+    async function fetchObjectives() {
+      setLoadingObjectives(true);
+      try {
+        const response = await fetch('http://localhost:4000/api/objectives');
+        const data = await response.json();
+        setObjectives(data);
+      } catch (err) {
+        console.error('Could not load objectives:', err);
+      }
+      setLoadingObjectives(false);
+    }
+    fetchObjectives();
+  }, []);
+
+  // Sanitize and normalize name
   const sanitizeName = (str) => {
     return str
-      .replace(/[^a-zA-Z0-9\s]/g, '') // Remove special characters
+      .replace(/[^a-zA-Z0-9\s]/g, '')
       .toLowerCase()
       .trim()
-      .split(/\s+/) // Split on any whitespace (handles multiple spaces)
+      .split(/\s+/)
       .filter(word => word.length > 0)
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
+  };
+
+  // Handle objective checkbox toggle
+  const toggleObjective = (code) => {
+    setSelectedObjectives(prev => 
+      prev.includes(code) 
+        ? prev.filter(c => c !== code) 
+        : [...prev, code]
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -44,45 +71,65 @@ export default function AddDegree() {
       return;
     }
 
-    // Sanitize and normalize the name
     const normalizedName = sanitizeName(name);
     
-    // Check if name is empty after sanitization (was only special characters)
     if (!normalizedName) {
       setError('Degree name must contain letters or numbers.');
       return;
     }
 
+    // Warning if no objectives selected (but don't block)
+    if (selectedObjectives.length === 0) {
+      const proceed = window.confirm(
+        'No learning objectives selected. Each degree should have objectives for evaluation purposes.\n\nDo you want to continue without objectives? (You can add them later)'
+      );
+      if (!proceed) return;
+    }
+
     setLoading(true);
 
     try {
+      // Step 1: Create the degree
       const response = await fetch('http://localhost:4000/api/degrees', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: normalizedName,
-          level: level,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: normalizedName, level: level }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        // Handle specific error cases
         if (data.error && data.error.includes('Duplicate')) {
           setError(`The degree "${normalizedName}" with level "${level}" already exists.`);
         } else {
           setError(data.error || 'Failed to add degree. Please try again.');
         }
+        setLoading(false);
         return;
       }
 
+      // Step 2: If objectives selected, assign them to the degree
+      if (selectedObjectives.length > 0) {
+        await fetch('http://localhost:4000/api/degree-objectives', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            degree_name: normalizedName,
+            degree_level: level,
+            objective_codes: selectedObjectives
+          }),
+        });
+      }
+
       // Success!
-      setSuccess(`Successfully added: ${normalizedName} (${level})`);
+      let successMsg = `Successfully added: ${normalizedName} (${level})`;
+      if (selectedObjectives.length > 0) {
+        successMsg += ` with ${selectedObjectives.length} learning objective(s)`;
+      }
+      setSuccess(successMsg);
       setName('');
       setLevel('');
+      setSelectedObjectives([]);
 
     } catch (err) {
       console.error(err);
@@ -103,7 +150,7 @@ export default function AddDegree() {
 
       <div className="form-header">
         <h1>Add Degree</h1>
-        <p className="subtitle">Create a new degree program</p>
+        <p className="subtitle">Create a new degree program with its learning objectives</p>
       </div>
 
       <form onSubmit={handleSubmit} className="data-form">
@@ -160,6 +207,47 @@ export default function AddDegree() {
           </select>
         </div>
 
+        {/* Learning Objectives Section */}
+        <div className="form-group">
+          <label>
+            Learning Objectives
+            <span className="optional-label">(select which objectives this degree aims to achieve)</span>
+          </label>
+          
+          {loadingObjectives ? (
+            <p className="loading-text">Loading objectives...</p>
+          ) : objectives.length === 0 ? (
+            <div className="info-box warning">
+              No learning objectives exist yet. 
+              <Link to="/add/learning-objective" style={{ marginLeft: '8px', fontWeight: 'bold' }}>
+                Add some first →
+              </Link>
+            </div>
+          ) : (
+            <div className="checkbox-group">
+              {objectives.map((obj) => (
+                <label key={obj.code} className="checkbox-item">
+                  <input
+                    type="checkbox"
+                    checked={selectedObjectives.includes(obj.code)}
+                    onChange={() => toggleObjective(obj.code)}
+                    disabled={loading}
+                  />
+                  <span className="checkbox-label">
+                    <strong>{obj.code}</strong> - {obj.title}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+          
+          {selectedObjectives.length > 0 && (
+            <span className="help-text">
+              {selectedObjectives.length} objective(s) selected
+            </span>
+          )}
+        </div>
+
         <div className="form-actions">
           <button type="submit" className="submit-btn" disabled={loading}>
             {loading ? 'Adding...' : 'Add Degree'}
@@ -177,4 +265,3 @@ export default function AddDegree() {
     </div>
   );
 }
-

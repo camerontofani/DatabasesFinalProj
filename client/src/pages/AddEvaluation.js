@@ -105,9 +105,31 @@ export default function AddEvaluation() {
         const [courseNo, sectionNo, term, year] = selectedSection.split('|');
         const [degreeName, degreeLevel] = degree.split('|');
         
-        const objResponse = await fetch(`http://localhost:4000/api/course-objectives?course_no=${encodeURIComponent(courseNo)}`);
-        const objData = await objResponse.json();
-        setObjectives(objData);
+        // Fetch course objectives (what the course teaches)
+        const courseObjResponse = await fetch(`http://localhost:4000/api/course-objectives?course_no=${encodeURIComponent(courseNo)}`);
+        const courseObjData = await courseObjResponse.json();
+        
+        // Fetch degree objectives (what the degree cares about)
+        const degreeObjResponse = await fetch(`http://localhost:4000/api/degree-objectives?degree_name=${encodeURIComponent(degreeName)}&degree_level=${encodeURIComponent(degreeLevel)}`);
+        const degreeObjData = await degreeObjResponse.json();
+        const degreeObjCodes = degreeObjData.map(d => d.objective_code);
+        
+        // If degree has no objectives defined, show all course objectives (backwards compatibility)
+        // Otherwise, show only the INTERSECTION (objectives that are in BOTH)
+        let filteredObjectives;
+        if (degreeObjCodes.length === 0) {
+          // No degree objectives defined - show all course objectives
+          filteredObjectives = courseObjData;
+        } else {
+          // Show only objectives that the degree cares about AND the course teaches
+          filteredObjectives = courseObjData.filter(obj => degreeObjCodes.includes(obj.objective_code));
+        }
+        setObjectives(filteredObjectives);
+        
+        // If intersection is empty but both have objectives, show a warning
+        if (degreeObjCodes.length > 0 && courseObjData.length > 0 && filteredObjectives.length === 0) {
+          setError('No matching objectives: This course teaches objectives that are not part of this degree\'s objectives.');
+        }
         
         const evalResponse = await fetch(`http://localhost:4000/api/section-evaluations?degree_name=${encodeURIComponent(degreeName)}&degree_level=${encodeURIComponent(degreeLevel)}&course_no=${encodeURIComponent(courseNo)}&section_no=${encodeURIComponent(sectionNo)}&term=${encodeURIComponent(term)}&year=${encodeURIComponent(year)}`);
         const evalData = await evalResponse.json();

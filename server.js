@@ -398,6 +398,123 @@ app.post('/api/objectives', async (req, res) => {
   }
 });
 
+// =====================================================
+//   DEGREE OBJECTIVES (which objectives belong to which degree)
+// =====================================================
+
+// ----------------------
+//   GET DEGREE OBJECTIVES
+// ----------------------
+app.get('/api/degree-objectives', async (req, res) => {
+  try {
+    const { degree_name, degree_level } = req.query;
+    
+    let query, params;
+    if (degree_name && degree_level) {
+      // Get objectives for a specific degree
+      query = `
+        SELECT do.degree_name, do.degree_level, do.objective_code, lo.title, lo.description
+        FROM DegreeObjective do
+        JOIN LearningObjective lo ON do.objective_code = lo.code
+        WHERE do.degree_name = ? AND do.degree_level = ?
+        ORDER BY do.objective_code
+      `;
+      params = [degree_name, degree_level];
+    } else {
+      // Get all degree objectives
+      query = `
+        SELECT do.degree_name, do.degree_level, do.objective_code, lo.title as objective_title
+        FROM DegreeObjective do
+        JOIN LearningObjective lo ON do.objective_code = lo.code
+        ORDER BY do.degree_name, do.degree_level, do.objective_code
+      `;
+      params = [];
+    }
+    
+    const [rows] = await pool.query(query, params);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   ADD DEGREE OBJECTIVES (batch - used when creating/editing degree)
+// ----------------------
+app.post('/api/degree-objectives', async (req, res) => {
+  try {
+    const { degree_name, degree_level, objective_codes } = req.body;
+
+    if (!degree_name || !degree_level) {
+      return res.status(400).json({ error: 'Degree is required.' });
+    }
+
+    if (!objective_codes || !Array.isArray(objective_codes)) {
+      return res.status(400).json({ error: 'Objective codes must be an array.' });
+    }
+
+    // Check if degree exists
+    const [degreeCheck] = await pool.query(
+      'SELECT name FROM Degree WHERE name = ? AND level = ?', 
+      [degree_name, degree_level]
+    );
+    if (degreeCheck.length === 0) {
+      return res.status(400).json({ error: 'Degree does not exist.' });
+    }
+
+    // Delete existing objectives for this degree (to replace with new selection)
+    await pool.query(
+      'DELETE FROM DegreeObjective WHERE degree_name = ? AND degree_level = ?',
+      [degree_name, degree_level]
+    );
+
+    // Insert new objectives
+    let added = 0;
+    for (const code of objective_codes) {
+      try {
+        await pool.query(
+          'INSERT INTO DegreeObjective (degree_name, degree_level, objective_code) VALUES (?, ?, ?)',
+          [degree_name, degree_level, code]
+        );
+        added++;
+      } catch (insertErr) {
+        // Skip invalid codes silently
+        console.error('Could not add objective:', code, insertErr.message);
+      }
+    }
+
+    res.status(201).json({ 
+      message: `${added} objective(s) assigned to degree.`,
+      added
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ----------------------
+//   DELETE A DEGREE OBJECTIVE
+// ----------------------
+app.delete('/api/degree-objectives/:degree_name/:degree_level/:objective_code', async (req, res) => {
+  try {
+    const { degree_name, degree_level, objective_code } = req.params;
+    const [result] = await pool.query(
+      'DELETE FROM DegreeObjective WHERE degree_name = ? AND degree_level = ? AND objective_code = ?',
+      [decodeURIComponent(degree_name), decodeURIComponent(degree_level), decodeURIComponent(objective_code)]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Degree objective not found.' });
+    }
+    res.json({ message: 'Degree objective removed successfully.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 // ----------------------
 //   ADD A COURSE OBJECTIVE LINK
 // ----------------------
