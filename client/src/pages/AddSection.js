@@ -75,9 +75,15 @@ export default function AddSection() {
       return;
     }
 
+    // Check for negative numbers
+    if (sectionNo.trim().startsWith('-') || parseInt(sectionNo, 10) < 0) {
+      setError('Section number cannot be negative.');
+      return;
+    }
+
     const normalizedSectionNo = normalizeSectionNo(sectionNo);
-    if (!normalizedSectionNo) {
-      setError('Section number must contain at least one digit.');
+    if (!normalizedSectionNo || normalizedSectionNo === '000') {
+      setError('Section number must be a positive number (e.g., 1, 01, 001).');
       return;
     }
 

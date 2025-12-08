@@ -202,7 +202,7 @@ export default function AddTeaches() {
               <option value="">-- Select Instructor --</option>
               {instructors.map((inst) => (
                 <option key={inst.instructor_id} value={inst.instructor_id}>
-                  {inst.instructor_name}
+                  {inst.instructor_name} (ID: {inst.instructor_id})
                 </option>
               ))}
             </select>

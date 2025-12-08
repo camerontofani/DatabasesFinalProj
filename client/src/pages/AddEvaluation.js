@@ -34,6 +34,7 @@ export default function AddEvaluation() {
   
   // Duplication feature
   const [otherDegrees, setOtherDegrees] = useState([]);
+  const [otherDegreesObjectives, setOtherDegreesObjectives] = useState({}); // { "DegName|Level": ["LO1", "LO2"] }
   const [duplicateTo, setDuplicateTo] = useState([]);
   
   // UI state
@@ -76,6 +77,24 @@ export default function AddEvaluation() {
       try {
         const [degreeName, degreeLevel] = degree.split('|');
         const [term, year] = semester.split('|');
+        
+        // Check if degree has at least one core course
+        const degreeCoursesRes = await fetch(
+          `http://localhost:4000/api/degree-courses`
+        );
+        const allDegreeCourses = await degreeCoursesRes.json();
+        const thisDegreeCourses = allDegreeCourses.filter(
+          dc => dc.degree_name === degreeName && dc.degree_level === degreeLevel
+        );
+        const coreCourses = thisDegreeCourses.filter(dc => dc.is_core);
+        
+        if (coreCourses.length === 0) {
+          setError(`Cannot enter evaluations: "${degreeName} (${degreeLevel})" has no core courses. A degree must have at least one core course before evaluations can be entered.`);
+          setSections([]);
+          setLoading(false);
+          return;
+        }
+        
         const response = await fetch(
           `http://localhost:4000/api/instructor-sections?degree_name=${encodeURIComponent(degreeName)}&degree_level=${encodeURIComponent(degreeLevel)}&term=${encodeURIComponent(term)}&year=${encodeURIComponent(year)}&instructor_id=${encodeURIComponent(instructorId)}`
         );
@@ -137,7 +156,21 @@ export default function AddEvaluation() {
         
         const otherDegResponse = await fetch(`http://localhost:4000/api/course-degrees?course_no=${encodeURIComponent(courseNo)}`);
         const otherDegData = await otherDegResponse.json();
-        setOtherDegrees(otherDegData.filter(d => !(d.degree_name === degreeName && d.degree_level === degreeLevel)));
+        const filteredOtherDeg = otherDegData.filter(d => !(d.degree_name === degreeName && d.degree_level === degreeLevel));
+        setOtherDegrees(filteredOtherDeg);
+        
+        // Fetch objectives for each other degree (to filter duplication options)
+        const otherDegObjMap = {};
+        for (const od of filteredOtherDeg) {
+          try {
+            const odObjRes = await fetch(`http://localhost:4000/api/degree-objectives?degree_name=${encodeURIComponent(od.degree_name)}&degree_level=${encodeURIComponent(od.degree_level)}`);
+            const odObjData = await odObjRes.json();
+            otherDegObjMap[`${od.degree_name}|${od.degree_level}`] = odObjData.map(o => o.objective_code);
+          } catch (e) {
+            otherDegObjMap[`${od.degree_name}|${od.degree_level}`] = [];
+          }
+        }
+        setOtherDegreesObjectives(otherDegObjMap);
       } catch (err) {
         setError('Could not load objectives.');
       }
@@ -319,7 +352,7 @@ export default function AddEvaluation() {
           <div className="form-group"><label>Instructor <span className="required">*</span></label>
             <select value={instructorId} onChange={(e) => { setInstructorId(e.target.value); setSelectedSection(''); setSelectedObjective(''); }}>
               <option value="">-- Select Instructor --</option>
-              {instructors.map((i) => <option key={i.instructor_id} value={i.instructor_id}>{i.instructor_name}</option>)}
+              {instructors.map((i) => <option key={i.instructor_id} value={i.instructor_id}>{i.instructor_name} (ID: {i.instructor_id})</option>)}
             </select>
           </div>
           {sections.length > 0 && <div className="sections-preview"><p><strong>{sections.length}</strong> section(s) found.</p></div>}
@@ -376,7 +409,35 @@ export default function AddEvaluation() {
                 </div>
               )}
               <div className="form-group"><label>Improvement Notes (Optional)</label><textarea value={improvementText} onChange={(e) => setImprovementText(e.target.value)} placeholder="Suggestions for improvement..." rows="3" /></div>
-              {otherDegrees.length > 0 && !isEditing && <div className="duplication-section"><h4>Duplicate to Other Degrees?</h4><p className="help-text">This course belongs to multiple degrees:</p><div className="duplicate-options">{otherDegrees.map((d) => { const key = `${d.degree_name}|${d.degree_level}`; return <label key={key} className="duplicate-option"><input type="checkbox" checked={duplicateTo.includes(key)} onChange={() => handleDuplicateToggle(key)} />{d.degree_name} ({d.degree_level})</label>; })}</div></div>}
+              {(() => {
+                // Filter other degrees to only those that have the selected objective
+                const eligibleDegrees = otherDegrees.filter(d => {
+                  const key = `${d.degree_name}|${d.degree_level}`;
+                  const degObjCodes = otherDegreesObjectives[key] || [];
+                  // Show if: degree has no objectives defined (backwards compat) OR has the selected objective
+                  return degObjCodes.length === 0 || degObjCodes.includes(selectedObjective);
+                });
+                
+                if (eligibleDegrees.length === 0 || isEditing) return null;
+                
+                return (
+                  <div className="duplication-section">
+                    <h4>Duplicate to Other Degrees?</h4>
+                    <p className="help-text">These degrees also have this learning objective ({selectedObjective}):</p>
+                    <div className="duplicate-options">
+                      {eligibleDegrees.map((d) => { 
+                        const key = `${d.degree_name}|${d.degree_level}`; 
+                        return (
+                          <label key={key} className="duplicate-option">
+                            <input type="checkbox" checked={duplicateTo.includes(key)} onChange={() => handleDuplicateToggle(key)} />
+                            {d.degree_name} ({d.degree_level})
+                          </label>
+                        ); 
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="form-actions"><button type="submit" className="submit-btn" disabled={loading}>{loading ? 'Saving...' : (isEditing ? 'Update' : 'Save')}</button><button type="button" className="secondary-btn" onClick={() => setSelectedObjective('')} disabled={loading}>Cancel</button></div>
             </div>
           )}

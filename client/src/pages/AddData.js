@@ -3,56 +3,57 @@ import { Link } from 'react-router-dom';
 import './AddData.css';
 
 export default function AddData() {
+  // Ordered to reflect the logical workflow for entering evaluations
   const entities = [
     {
-      name: 'Degree',
-      path: '/add/degree',
-      description: 'Add a new degree program',
+      name: 'Learning Objective',
+      path: '/add/learning-objective',
+      description: '1. Create learning objectives first',
     },
     {
       name: 'Course',
       path: '/add/course',
-      description: 'Add a new course',
-    },
-    {
-      name: 'Instructor',
-      path: '/add/instructor',
-      description: 'Add a new instructor',
-    },
-    {
-      name: 'Learning Objective',
-      path: '/add/learning-objective',
-      description: 'Add a new learning objective',
-    },
-    {
-      name: 'Semester',
-      path: '/add/semester',
-      description: 'Add a new semester (Fall, Spring, Summer)',
-    },
-    {
-      name: 'Section',
-      path: '/add/section',
-      description: 'Add a new course section',
+      description: '2. Add courses to the system',
     },
     {
       name: 'Course Objective',
       path: '/add/course-objective',
-      description: 'Link a course to a learning objective',
+      description: '3. Link courses to their learning objectives',
+    },
+    {
+      name: 'Degree',
+      path: '/add/degree',
+      description: '4. Create degree programs with objectives',
     },
     {
       name: 'Degree Course',
       path: '/add/degree-course',
-      description: 'Link a course to a degree (core or elective)',
+      description: '5. Link courses to degrees (mark core/elective)',
+    },
+    {
+      name: 'Instructor',
+      path: '/add/instructor',
+      description: '6. Add instructors',
+    },
+    {
+      name: 'Semester',
+      path: '/add/semester',
+      description: '7. Add semesters (Fall, Spring, Summer)',
+    },
+    {
+      name: 'Section',
+      path: '/add/section',
+      description: '8. Create course sections for a semester',
     },
     {
       name: 'Instructor Assignment',
       path: '/add/teaches',
-      description: 'Assign an instructor to a section',
+      description: '9. Assign instructors to sections',
     },
     {
       name: 'Evaluation',
       path: '/add/evaluation',
-      description: 'Add a new evaluation',
+      description: '10. Enter evaluation data',
     },
   ];
 
