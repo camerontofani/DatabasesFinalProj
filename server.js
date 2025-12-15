@@ -677,17 +677,39 @@ app.get('/api/degrees/:name/:level/details', async (req, res) => {
       ORDER BY s.year DESC, s.term, s.course_no, s.section_no
     `, [name, level]);
     
-    // Get learning objectives for courses in this degree
-    const [objectives] = await pool.query(`
-      SELECT DISTINCT co.course_no, co.objective_code, lo.title
-      FROM CourseObjective co
-      JOIN LearningObjective lo ON co.objective_code = lo.code
-      JOIN DegreeCourse dc ON co.course_no = dc.course_no
-      WHERE dc.degree_name = ? AND dc.degree_level = ?
-      ORDER BY co.course_no, co.objective_code
+    // Get the degree's OWN learning objectives (from DegreeObjective table)
+    // This shows what objectives the degree program cares about
+    const [degreeObjectives] = await pool.query(`
+      SELECT do.objective_code, lo.title, lo.description
+      FROM DegreeObjective do
+      JOIN LearningObjective lo ON do.objective_code = lo.code
+      WHERE do.degree_name = ? AND do.degree_level = ?
+      ORDER BY do.objective_code
     `, [name, level]);
     
-    res.json({ courses, sections, objectives });
+    // For each degree objective, find which courses (in this degree) satisfy it
+    // This joins DegreeObjective -> CourseObjective -> DegreeCourse
+    const [objectiveCourses] = await pool.query(`
+      SELECT do.objective_code, co.course_no, c.course_name
+      FROM DegreeObjective do
+      JOIN CourseObjective co ON do.objective_code = co.objective_code
+      JOIN DegreeCourse dc ON co.course_no = dc.course_no
+        AND dc.degree_name = do.degree_name 
+        AND dc.degree_level = do.degree_level
+      JOIN Course c ON co.course_no = c.course_no
+      WHERE do.degree_name = ? AND do.degree_level = ?
+      ORDER BY do.objective_code, co.course_no
+    `, [name, level]);
+    
+    // Group courses by objective for easier frontend display
+    const objectivesWithCourses = degreeObjectives.map(obj => ({
+      ...obj,
+      courses: objectiveCourses
+        .filter(oc => oc.objective_code === obj.objective_code)
+        .map(oc => ({ course_no: oc.course_no, course_name: oc.course_name }))
+    }));
+    
+    res.json({ courses, sections, objectives: objectivesWithCourses });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });

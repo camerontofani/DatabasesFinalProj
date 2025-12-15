@@ -229,23 +229,28 @@ function ViewAllData() {
           </div>
 
           <div className="details-section">
-            <h4>Learning Objectives ({detailsData.objectives?.length || 0})</h4>
+            <h4>Degree Learning Objectives ({detailsData.objectives?.length || 0})</h4>
             {detailsData.objectives?.length > 0 ? (
               <table className="details-table">
                 <thead>
-                  <tr><th>Code</th><th>Title</th><th>Course</th></tr>
+                  <tr><th>Code</th><th>Title</th><th>Satisfied By Courses</th></tr>
                 </thead>
                 <tbody>
                   {detailsData.objectives.map((o, i) => (
                     <tr key={i}>
                       <td>{o.objective_code}</td>
                       <td>{o.title}</td>
-                      <td>{o.course_no}</td>
+                      <td>
+                        {o.courses && o.courses.length > 0 
+                          ? o.courses.map(c => c.course_no).join(', ')
+                          : <span className="null-value">No courses satisfy this objective</span>
+                        }
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            ) : <p className="no-data">No learning objectives found for this degree's courses.</p>}
+            ) : <p className="no-data">No learning objectives are assigned to this degree. Add objectives in the Degree Objectives section.</p>}
           </div>
         </div>
       );
